@@ -3,26 +3,42 @@ var router = express.Router();
 const Post = require("../models/post");
 const asyncHandler = require("express-async-handler");
 const Comment = require('../models/comment');
-const { check, body, validationResult } = require("express-validator");
+const { check, validationResult } = require("express-validator");
 const validator = require('validator');
+const jwt = require('jsonwebtoken');
+require('dotenv').config();
+
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (token == null)
+    return res.json({status: "You need to login"});
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
+    if (err)  
+      return res.json({status: 'Invalid User'});
+    req.user = user;
+    next();
+  })
+}
 
 /* GET home page. */
 router.get('/', asyncHandler(async (req, res, next) => {
   const posts = Post.find().exec();
-  res.json({
+  return res.json({
     posts: posts
   });
 }));
 
-//router.get('/create', asyncHandler(async (req, res, next) => {
-//  //validate token 
-//  if (true) 
-//    res.json('ok');
-//  else
-//    res.json('Forbidden');
-//}))
+router.post('/login', asyncHandler(async (req, res, next) => {
+  const user = req.body;
+  if (user.username === 'Carlos' && user.password === process.env.SECRET_PASSWORD) {
+    const accessToken = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET)
+    return res.json({token: accessToken, status: 'ok'});
+  }
+  return res.json({status: 'Invalid User'});
+}))
 
-router.post('/create', [
+router.post('/create', authenticateToken, [
   // Validate and sanitize fields.
   check("title", "You need a title mate")
     .trim()
