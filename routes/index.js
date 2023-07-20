@@ -23,11 +23,18 @@ const authenticateToken = (req, res, next) => {
 
 /* GET home page. */
 router.get('/', asyncHandler(async (req, res, next) => {
-  const posts = Post.find().exec();
+  const posts = await Post.find({published: true}).exec();
   return res.json({
     posts: posts
   });
 }));
+
+router.get('/api', authenticateToken, asyncHandler(async (req, res, next) => {
+  const posts = await Post.find().exec();
+  return res.json({
+    posts: posts
+  });
+}))
 
 router.post('/login', asyncHandler(async (req, res, next) => {
   const user = req.body;
@@ -78,7 +85,6 @@ router.post('/create', authenticateToken, [
   asyncHandler(async (req, res, next) => {
     // Extract the validation errors from a request.
     const errors = validationResult(req);
-    console.log(req.body)
     const post = new Post({ 
       title: req.body.title,
       sections: req.body.sections, 
@@ -90,28 +96,89 @@ router.post('/create', authenticateToken, [
     console.log(errors.array())
 
     if (!errors.isEmpty()) {
-      // Use this for update
-      //post.title = validator.unescape(post.title);
-      //for (let i = 0; i < post.sections.length; i ++) {
-      //  if (post.sections[i].contentType == 'paragraph') {
-      //    post.paragraphs[post.sections[i].index].text = validator.unescape(post.paragraphs[post.sections[i].index].text);
-      //    if (Object.hasOwn(post.paragraphs[post.sections[i].index], 'header')) 
-      //      post.paragraphs[post.sections[i].index].header = validator.unescape(post.paragraphs[post.sections[i].index].header);
-      //  }
-      //  else {
-      //    if (Object.hasOwn(post.images[post.sections[i].index], 'header'))
-      //      post.images[post.sections[i].index].header = validator.unescape(post.images[post.sections[i].index].header);
-      //  }
-      //}
       return res.status(200).json({
           status:'error',
           errors: errors.array(),
         });
     } else {
         await post.save();
-        return res.status(200).json({status: 'saved'});
+        return res.status(200).json({status: 'saved', id: post._id});
       }    
   }),
-])
+]);
+
+router.get('/post/:id/update', authenticateToken, asyncHandler(async (req, res, next) => {
+  const post = await Post.find({_id: req.params.id}).exec();
+  return res.json({
+    post: post[0],
+  })
+}));
+
+router.post('/post/:id/update', authenticateToken, [
+  // Validate and sanitize fields.
+  check("title", "You need a title mate")
+    .trim()
+    .isLength({ min: 1})
+    .escape(),
+  check("sections", "You need content mate")
+    .exists()
+    .custom((arr) => {
+      return arr.length > 0
+    }),
+  check("sections.*.index", "Section index missing")
+    .exists()
+    .isNumeric()
+    .withMessage('Section index is not a number'),
+  check('sections.*.contentType', 'Section content type missing')
+    .trim()
+    .isLength({ min: 1})
+    .escape(),
+  check('images.*.url', "Image url is not string")
+    .optional()
+    .isURL(),
+  check('images.*.header')
+    .optional()
+    .trim()
+    .escape(),
+  check('paragraphs.*.text', 'Paragraph empty')
+    .trim()
+    .isLength({ min: 1})
+    .escape(),  
+  check('paragraphs.*.header')
+    .optional()
+    .trim()
+    .escape(),
+  check('published', "Publish status missing")
+    .isBoolean(),
+  // Process request after validation and sanitization.
+  asyncHandler(async (req, res, next) => {
+    // Extract the validation errors from a request.
+    const errors = validationResult(req);
+    const post = new Post({ 
+      title: req.body.title,
+      sections: req.body.sections, 
+      images: req.body.images,
+      paragraphs: req.body.paragraphs,
+      published: req.body.published,
+      _id: req.body._id,
+    });
+    console.log(errors.array())
+
+    if (!errors.isEmpty()) {
+      return res.status(200).json({
+          status:'error',
+          errors: errors.array(),
+        });
+    } else {
+        await Post.findByIdAndUpdate(req.body._id, post, {});
+        return res.status(200).json({status: 'saved', id: post._id});
+      }    
+  }),
+]);
+
+router.post('/post/:id/delete', authenticateToken, asyncHandler(async (req, res, next) => {
+  await Post.findByIdAndRemove(req.params.id);
+  return res.status(200).json({status: 'deleted'});
+}))
 
 module.exports = router;
