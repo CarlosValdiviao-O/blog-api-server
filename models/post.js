@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
 const PostSchema = new Schema({
-  title: { type: String, required: true },
+  title: { type: String },
   sections: [{
     index: Number,
     contentType: String,
@@ -11,6 +11,7 @@ const PostSchema = new Schema({
   images: [{
     url: String,
     header: String,
+    name: String,
   }],
   paragraphs: [{
     header: String,
