@@ -38,7 +38,6 @@ const authenticateToken = (req, res, next) => {
   })
 }
 
-/* GET home page. */
 router.get('/', asyncHandler(async (req, res, next) => {
   const posts = await Post.find({published: true}).exec();
   return res.json({
@@ -75,6 +74,13 @@ router.post('/create', authenticateToken, asyncHandler(async (req, res, next) =>
   return res.status(200).json({status: 'saved', id: post._id});        
 }));
 
+router.get('/post/:id', asyncHandler(async (req, res, next) => {
+  const post = await Post.find({_id: req.params.id}).exec();
+  return res.json({
+    post: post[0],
+  })
+}));
+
 router.get('/post/:id/update', authenticateToken, asyncHandler(async (req, res, next) => {
   const post = await Post.find({_id: req.params.id}).exec();
   return res.json({
@@ -85,9 +91,7 @@ router.get('/post/:id/update', authenticateToken, asyncHandler(async (req, res, 
 router.post('/post/:id/publish', authenticateToken, [
   // Validate and sanitize fields.
   check("title", "You need a title mate")
-    .trim()
-    .isLength({ min: 1})
-    .escape(),
+    .isLength({ min: 1}),
   check("sections", "You need content mate")
     .exists()
     .custom((arr) => {
@@ -98,36 +102,26 @@ router.post('/post/:id/publish', authenticateToken, [
     .isNumeric()
     .withMessage('Section index is not a number'),
   check('sections.*.contentType', 'Section content type missing')
-    .trim()
-    .isLength({ min: 1})
-    .escape(),
+    .isLength({ min: 1}),
   check('images.*.url', "Image url is not a url")
     .optional()
     .isURL(),
   check('images.*.header', "Image header can't be empty")
     .optional()
-    .trim()
-    .isLength({ min: 1})
-    .escape(),  
+    .isLength({ min: 1}),  
   check('images.*.name', "Image name can't be empty")
     .optional()
-    .trim()
-    .isLength({ min: 1})
-    .escape(),
+    .isLength({ min: 1}),
   check('paragraphs', 'You need some text')
     .exists()
     .custom((arr) => {
       return arr.length > 0
     }),
   check('paragraphs.*.text', 'Paragraph empty')
-    .trim()
-    .isLength({ min: 1})
-    .escape(),  
+    .isLength({ min: 1}),  
   check('paragraphs.*.header', "Paragraph header can't be empty")
     .optional()
-    .trim()
-    .isLength({ min: 1})
-    .escape(),
+    .isLength({ min: 1}),
   check('published', "Publish status missing")
     .isBoolean(),
   // Process request after validation and sanitization.
@@ -139,7 +133,7 @@ router.post('/post/:id/publish', authenticateToken, [
       sections: req.body.sections, 
       images: req.body.images,
       paragraphs: req.body.paragraphs,
-      published: req.body.published,
+      published: true,
       _id: req.body._id,
     });
     console.log(errors.array())
@@ -162,7 +156,7 @@ router.post('/post/:id/save', authenticateToken, asyncHandler(async (req, res, n
     sections: req.body.sections, 
     images: req.body.images,
     paragraphs: req.body.paragraphs,
-    published: req.body.published,
+    published: false,
     _id: req.body._id,
   });
   await Post.findByIdAndUpdate(req.body._id, post, {});
@@ -182,6 +176,60 @@ router.post('/post/:id/delete', authenticateToken, asyncHandler(async (req, res,
   }
   await Post.findByIdAndRemove(req.params.id);
   return res.status(200).json({status: 'deleted'});
+}))
+
+router.post('/post/:id/comment', [
+  // Validate and sanitize fields.
+  check("author")
+    .trim()
+    .optional({values: 'falsy'})
+    .isLength({ max: 30 })
+    .withMessage(`Author's name is too long`)
+    .isLength({ min: 2 })
+    .withMessage(`Author's name is too short`)
+    .escape(),
+  check("text", "Text is missing")
+    .trim()
+    .exists()
+    .custom((text) => {
+      return text ? true : false
+    })
+    .isLength({ max: 800 })
+    .withMessage('Comment is too long')
+    .escape(),
+  // Process request after validation and sanitization.
+  asyncHandler(async (req, res, next) => {
+    // Extract the validation errors from a request.
+    const errors = validationResult(req);
+    const comment = new Comment({ 
+      author: req.body.author || 'Unknown',
+      text: req.body.text, 
+      post: req.body.post,
+      createdAt: new Date(),
+    });
+    console.log(errors.array())
+
+    if (!errors.isEmpty()) {
+      return res.status(200).json({
+          status:'error',
+          errors: errors.array(),
+        });
+    } else {
+        await comment.save();
+        return res.status(200).json({status: 'published'});
+      }    
+  }),
+]);
+
+router.get('/post/:id/comments', asyncHandler(async (req, res, next) => {
+  let comments = await Comment.find({post: req.params.id}).exec();
+  comments.forEach(comment => {
+    comment.author = validator.unescape(comment.author);
+    comment.text = validator.unescape(comment.text);
+  })
+  return res.json({
+    comments: comments
+  })
 }))
 
 module.exports = router;
