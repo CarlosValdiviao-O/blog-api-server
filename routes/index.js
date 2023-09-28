@@ -232,4 +232,10 @@ router.get('/post/:id/comments', asyncHandler(async (req, res, next) => {
   })
 }))
 
+router.post('/post/:id/comment/:commid/delete', authenticateToken, asyncHandler(async (req, res, next) => {
+  const comment = await Comment.find({_id: req.params.commid}).exec();
+  await Comment.findByIdAndRemove(req.params.commid);
+  return res.status(200).json({status: 'deleted'});
+}))
+
 module.exports = router;
