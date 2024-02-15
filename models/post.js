@@ -18,12 +18,14 @@ const PostSchema = new Schema({
     text: String,
   }],
   createdAt: { type: Date, required: true },
-  published: { type: Boolean, required: true }
+  published: { type: Boolean, required: true },
+  preview: {type: String}
 });
 
 PostSchema.virtual("url").get(function () {
   return `/post/${this._id}`;
 });
 
+//update preview every time paragraphs change
 
 module.exports = mongoose.model("Post", PostSchema);

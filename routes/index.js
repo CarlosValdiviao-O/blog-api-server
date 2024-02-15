@@ -39,14 +39,14 @@ const authenticateToken = (req, res, next) => {
 }
 
 router.get('/', asyncHandler(async (req, res, next) => {
-  const posts = await Post.find({published: true}).exec();
+  const posts = await Post.find({published: true}, "title preview").exec();
   return res.json({
     posts: posts
   });
 }));
 
 router.get('/api', authenticateToken, asyncHandler(async (req, res, next) => {
-  const posts = await Post.find().exec();
+  const posts = await Post.find({}, "title preview").exec();
   return res.json({
     posts: posts
   });
@@ -67,6 +67,7 @@ router.post('/create', authenticateToken, asyncHandler(async (req, res, next) =>
     sections: [], 
     images: [],
     paragraphs: [],
+    preview: '',
     published: false,
     createdAt: new Date(),
   });
@@ -133,6 +134,7 @@ router.post('/post/:id/publish', authenticateToken, [
       sections: req.body.sections, 
       images: req.body.images,
       paragraphs: req.body.paragraphs,
+      preview: req.body.preview,
       published: true,
       _id: req.body._id,
     });
@@ -156,6 +158,7 @@ router.post('/post/:id/save', authenticateToken, asyncHandler(async (req, res, n
     sections: req.body.sections, 
     images: req.body.images,
     paragraphs: req.body.paragraphs,
+    preview: req.body.paragraphs[0].text.substring(0, 150),
     published: false,
     _id: req.body._id,
   });
